@@ -43,7 +43,7 @@ def get_options(col, default=None):
 
 with st.form("advisor_form"):
     gender = st.selectbox("Select your gender:", get_options('gender', 'Female'))
-    age = st.text_input("Select your age:", value="21")
+    age = st.number_input("Select your age:", min_value=18, max_value=100, value=21)
     investment_avenues = st.selectbox("Do you invest in Investment Avenues?", get_options('investment_avenues', 'No'))
     mutual_funds = st.selectbox("Do you invest in Mutual Funds?", get_options('mutual_funds', '1'))
     equity_market = st.selectbox("Do you invest in Equity Market?", get_options('equity_market', '1'))
@@ -64,7 +64,6 @@ with st.form("advisor_form"):
     submitted = st.form_submit_button("Get Investment Advice")
 
 if submitted:
-    # Show user selections
     st.subheader("Your Selections")
     st.markdown(f"""
     - **Gender:** {gender}
@@ -90,7 +89,7 @@ if submitted:
     # Prepare user input for matching
     user_inputs = {
         'gender': gender,
-        'age': age,
+        'age': str(age),
         'investment_avenues': investment_avenues,
         'mutual_funds': mutual_funds,
         'equity_market': equity_market,
@@ -109,37 +108,39 @@ if submitted:
         'avenue': avenue,
     }
 
-    # Matching logic: try to find best match in finance_df
-    def find_best_match(finance_df, user_inputs):
-        mask = pd.Series([True] * len(finance_df))
+    # Smarter matching logic: score each row by number of matches
+    def score_row(row, user_inputs):
+        score = 0
         for col, val in user_inputs.items():
-            if col in finance_df.columns:
-                mask &= (finance_df[col].astype(str).str.lower() == str(val).lower())
-        matches = finance_df[mask]
-        if not matches.empty:
-            return matches.iloc[0]
-        # If no exact match, find partial matches (e.g., match on avenue, objective, factor)
-        for key in ['avenue', 'objective', 'factor']:
-            if key in finance_df.columns and user_inputs[key]:
-                partial = finance_df[finance_df[key].astype(str).str.lower() == str(user_inputs[key]).lower()]
-                if not partial.empty:
-                    return partial.iloc[0]
-        # Fallback: first row
-        return finance_df.iloc[0]
+            if col in row.index:
+                if str(row[col]).lower() == str(val).lower():
+                    score += 1
+        return score
 
-    match = find_best_match(finance_df, user_inputs)
+    finance_df['match_score'] = finance_df.apply(lambda row: score_row(row, user_inputs), axis=1)
+    best_match = finance_df.sort_values('match_score', ascending=False).iloc[0]
 
-    # Show advice and suggested avenue
-    st.subheader("Personalized Investment Advice")
-    advice = match['advice'] if 'advice' in match else None
-    suggested_avenue = match['avenue'] if 'avenue' in match else None
+    recommended_avenue = best_match['avenue'] if 'avenue' in best_match else None
+    advice = best_match['advice'] if 'advice' in best_match else None
 
-    if advice:
-        st.success(f"**Advice:** {advice}")
-    if suggested_avenue:
-        st.info(f"**Suggested Avenue:** {suggested_avenue}")
-    if not advice and not suggested_avenue:
-        st.warning("No specific advice found. Consider consulting a financial advisor.")
+    # Compare user preference to recommendation
+    if recommended_avenue and avenue and recommended_avenue.lower() == avenue.lower():
+        st.success(f"Your preferred investment avenue ({avenue}) matches our recommendation!")
+        if advice:
+            st.write(f"**Advice:** {advice}")
+    elif recommended_avenue:
+        st.warning(f"Based on your profile, we recommend **{recommended_avenue}** instead of your selected preference ({avenue}).")
+        if advice:
+            st.write(f"**Reason:** {advice}")
+    else:
+        st.warning("No specific avenue recommendation found. Consider consulting a financial advisor.")
+
+    # Show reasoning behind recommendation
+    st.info("Recommendation is based on your gender, age, investment objective, purpose, duration, monitoring frequency, expected return, and factors considered.")
+
+    # Optionally, show the full matched row for transparency
+    with st.expander("See details of matched profile"):
+        st.write(best_match)
 
     # Add animation for positive feedback
     st.balloons()
@@ -147,5 +148,5 @@ if submitted:
 
     # Optionally, show more info if present
     for col in ['reason_equity', 'reason_mutual', 'reason_bonds', 'reason_fd']:
-        if col in match and pd.notna(match[col]):
-            st.write(f"**{col.replace('_', ' ').title()}:** {match[col]}")
+        if col in best_match and pd.notna(best_match[col]):
+            st.write(f"**{col.replace('_', ' ').title()}:** {best_match[col]}")
