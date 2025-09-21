@@ -1,5 +1,10 @@
 import streamlit as st
 import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.preprocessing import OneHotEncoder
+from sklearn.pipeline import Pipeline
+from sklearn.compose import ColumnTransformer
 import joblib
 import numpy as np
 
@@ -41,23 +46,70 @@ st.markdown("""
 st.title("📈 AI-Powered Financial Advisor")
 st.write("Get personalized investment advice based on your profile.")
 
-# --- 2. Model and Features Loading ---
+
+# --- 2. Model Training and Caching ---
 
 @st.cache_resource
-def load_model():
-    """Loads the pre-trained model and features from disk."""
-    try:
-        model = joblib.load('robo_advisor_model.joblib')
-        features = joblib.load('model_features.joblib')
-        return model, features
-    except FileNotFoundError:
-        st.error("Error: Model files not found. Please run 'train_and_export_model.py' first.")
-        return None, None
+def train_and_cache_model():
+    """
+    Trains the machine learning model and caches it to prevent retraining on every interaction.
+    This function combines the logic from train_and_export_model.py.
+    """
+    # Create placeholder data for a realistic example.
+    data = {
+        'gender': ['Female', 'Male', 'Female', 'Male', 'Female', 'Male', 'Female', 'Male', 'Male', 'Female'],
+        'age': [25, 35, 45, 55, 30, 40, 50, 60, 22, 33],
+        'investment_avenues': ['Yes', 'No', 'Yes', 'No', 'Yes', 'No', 'Yes', 'No', 'Yes', 'No'],
+        'mutual_funds': ['1', '1', '0', '1', '1', '0', '1', '0', '1', '0'],
+        'equity_market': ['1', '0', '1', '0', '1', '0', '1', '0', '1', '0'],
+        'debentures': ['0', '0', '1', '0', '0', '0', '1', '0', '0', '1'],
+        'government_bonds': ['0', '1', '1', '0', '0', '1', '1', '0', '1', '0'],
+        'fixed_deposits': ['1', '0', '0', '1', '1', '0', '0', '1', '1', '0'],
+        'ppf': ['1', '1', '0', '0', '1', '1', '0', '0', '1', '0'],
+        'gold': ['2', '1', '2', '2', '1', '2', '2', '1', '1', '2'],
+        'stock_marktet': ['No', 'Yes', 'Yes', 'No', 'Yes', 'No', 'No', 'No', 'Yes', 'Yes'],
+        'factor': ['Returns', 'Liquidity', 'Safety', 'Liquidity', 'Returns', 'Returns', 'Safety', 'Safety', 'Liquidity', 'Safety'],
+        'objective': ['Capital Appreciation', 'Regular Income', 'Tax Benefits', 'Capital Appreciation', 'Capital Appreciation', 'Tax Benefits', 'Regular Income', 'Capital Appreciation', 'Regular Income', 'Tax Benefits'],
+        'purpose': ['Returns', 'Returns', 'Returns', 'Returns', 'Returns', 'Returns', 'Returns', 'Returns', 'Returns', 'Returns'],
+        'duration': ['1-3 years', '3-5 years', '1-3 years', 'More than 5 years', '1-3 years', '3-5 years', '1-3 years', 'More than 5 years', '1-3 years', '3-5 years'],
+        'invest_monitor': ['Monthly', 'Quarterly', 'Daily', 'Weekly', 'Monthly', 'Quarterly', 'Weekly', 'Monthly', 'Daily', 'Monthly'],
+        'expect': ['10%-20%', '10%-20%', '20%-30%', '5%-10%', '10%-20%', '10%-20%', '20%-30%', '5%-10%', '10%-20%', '10%-20%'],
+        'avenue': ['Public Provident Fund', 'Equity Market', 'Gold', 'Fixed Deposits', 'Public Provident Fund', 'Equity Market', 'Gold', 'Fixed Deposits', 'Public Provident Fund', 'Equity Market']
+    }
+    df = pd.DataFrame(data)
 
-model, model_features = load_model()
+    # Define features (X) and target (y)
+    features = ['gender', 'age', 'investment_avenues', 'mutual_funds', 'equity_market', 'debentures', 'government_bonds',
+                'fixed_deposits', 'ppf', 'gold', 'stock_marktet', 'factor', 'objective', 'purpose', 'duration',
+                'invest_monitor', 'expect']
+    target = 'avenue'
+    
+    X = df[features]
+    y = df[target]
 
-if model is None:
-    st.stop()
+    # Identify categorical and numerical features
+    categorical_features = X.select_dtypes(include=['object']).columns
+    
+    # Create a preprocessor using ColumnTransformer
+    preprocessor = ColumnTransformer(
+        transformers=[
+            ('cat', OneHotEncoder(handle_unknown='ignore'), categorical_features)
+        ],
+        remainder='passthrough'
+    )
+
+    # Create and train a machine learning pipeline
+    model = Pipeline(steps=[
+        ('preprocessor', preprocessor),
+        ('classifier', RandomForestClassifier(n_estimators=100, random_state=42))
+    ])
+
+    model.fit(X, y)
+
+    return model, features
+
+# Train and load the model at the start of the app
+model, model_features = train_and_cache_model()
 
 # --- 3. User Input Form ---
 
