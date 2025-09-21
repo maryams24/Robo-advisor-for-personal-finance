@@ -4,8 +4,8 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.pipeline import Pipeline
 from sklearn.compose import ColumnTransformer
-import joblib
 import numpy as np
+import joblib
 
 # --- 1. Page Configuration and Styling ---
 
@@ -52,35 +52,62 @@ st.write("Get personalized investment advice based on your profile.")
 def train_and_cache_model():
     """
     Trains the machine learning model and caches it to prevent retraining on every interaction.
+    This function now loads and merges the two provided CSV files.
     """
-    # Create DataFrame from the new data provided by the user
-    data_dict = {
-        'gender': ['Female', 'Female', 'Male', 'Male', 'Female', 'Female', 'Female'],
-        'age': [34, 23, 30, 22, 24, 24, 27],
-        'investment_avenues': ['Yes', 'Yes', 'Yes', 'Yes', 'No', 'No', 'Yes'],
-        'mutual_funds_rank': [1, 4, 3, 2, 2, 7, 3],
-        'equity_market_rank': [2, 3, 6, 1, 1, 5, 6],
-        'debentures_rank': [5, 2, 4, 3, 3, 4, 4],
-        'government_bonds_rank': [3, 1, 2, 7, 6, 6, 2],
-        'fixed_deposits_rank': [7, 5, 5, 6, 4, 3, 5],
-        'ppf_rank': [6, 6, 1, 4, 5, 1, 1],
-        'gold_rank': [4, 7, 7, 5, 7, 2, 7],
-        'stock_market': ['Yes', 'No', 'Yes', 'Yes', 'No', 'No', 'Yes'],
-        'factor': ['Returns', 'Locking Period', 'Returns', 'Returns', 'Returns', 'Risk', 'Returns'],
-        'objective': ['Capital Appreciation', 'Capital Appreciation', 'Capital Appreciation', 'Income', 'Income', 'Capital Appreciation', 'Capital Appreciation'],
-        'purpose': ['Wealth Creation', 'Wealth Creation', 'Wealth Creation', 'Wealth Creation', 'Wealth Creation', 'Wealth Creation', 'Wealth Creation'],
-        'duration': ['1-3 years', 'More than 5 years', '3-5 years', 'Less than 1 year', 'Less than 1 year', '1-3 years', '3-5 years'],
-        'invest_monitor': ['Monthly', 'Weekly', 'Daily', 'Daily', 'Daily', 'Daily', 'Monthly'],
-        'expect': ['20%-30%', '20%-30%', '20%-30%', '10%-20%', '20%-30%', '30%-40%', '20%-30%'],
-        'avenue': ['Mutual Fund', 'Mutual Fund', 'Equity', 'Equity', 'Equity', 'Mutual Fund', 'Equity'],
-        'savings_objectives': ['Retirement Plan', 'Health Care', 'Retirement Plan', 'Retirement Plan', 'Retirement Plan', 'Retirement Plan', 'Retirement Plan'],
-        'reason_equity': ['Capital Appreciation', 'Dividend', 'Capital Appreciation', 'Dividend', 'Capital Appreciation', 'Liquidity', 'Capital Appreciation'],
-        'reason_mutual': ['Better Returns', 'Better Returns', 'Tax Benefits', 'Fund Diversification', 'Better Returns', 'Fund Diversification', 'Better Returns'],
-        'reason_bonds': ['Safe Investment', 'Safe Investment', 'Assured Returns', 'Tax Incentives', 'Safe Investment', 'Safe Investment', 'Assured Returns'],
-        'reason_fd': ['Fixed Returns', 'High Interest Rates', 'Fixed Returns', 'High Interest Rates', 'Risk Free', 'Risk Free', 'High Interest Rates'],
-        'info_source': ['Newspapers and Magazines', 'Financial Consultants', 'Television', 'Internet', 'Internet', 'Internet', 'Financial Consultants']
+    try:
+        # Load the two provided CSV files
+        original_df = pd.read_csv('Original_data.csv')
+        finance_df = pd.read_csv('Finance_data.csv')
+    except FileNotFoundError:
+        st.error("Error: CSV data files not found. Please ensure 'Original_data.csv' and 'Finance_data.csv' are in the same directory.")
+        st.stop()
+
+    # Standardize column names for merging
+    original_df.columns = original_df.columns.str.strip().str.lower().str.replace(' ', '_').str.replace('?', '').str.replace('[', '').str.replace(']', '').str.replace('.', '_', regex=False)
+    finance_df.columns = finance_df.columns.str.strip().str.lower().str.replace(' ', '_').str.replace('?', '').str.replace('[', '').str.replace(']', '').str.replace('.', '_', regex=False)
+    
+    # Map the messy column names to a clean, consistent set
+    column_mapping = {
+        'do_you_invest_in_investment_avenues': 'investment_avenues',
+        'what_do_you_think_are_the_best_options_for_investing_your_money_rank_mutual_funds': 'mutual_funds_rank',
+        'what_do_you_think_are_the_best_options_for_investing_your_money_rank_equity_market': 'equity_market_rank',
+        'what_do_you_think_are_the_best_options_for_investing_your_money_rank_debentures': 'debentures_rank',
+        'what_do_you_think_are_the_best_options_for_investing_your_money_rank_government_bonds': 'government_bonds_rank',
+        'what_do_you_think_are_the_best_options_for_investing_your_money_rank_fixed_deposits': 'fixed_deposits_rank',
+        'what_do_you_think_are_the_best_options_for_investing_your_money_rank_public_provident_fund': 'ppf_rank',
+        'what_do_you_think_are_the_best_options_for_investing_your_money_rank_gold': 'gold_rank',
+        'do_you_invest_in_stock_market_': 'stock_market',
+        'what_are_the_factors_considered_by_you_while_investing_in_any_instrument_': 'factor',
+        'what_is_your_investment_objective_': 'objective',
+        'what_is_your_purpose_behind_investment_': 'purpose',
+        'how_long_do_you_prefer_to_keep_your_money_in_any_investment_instrument_': 'duration',
+        'how_often_do_you_monitor_your_investment_': 'invest_monitor',
+        'how_much_return_do_you_expect_from_any_investment_instrument_': 'expect',
+        'which_investment_avenue_do_you_mostly_invest_in_': 'avenue',
+        'what_are_your_savings_objectives_': 'savings_objectives',
+        'reasons_for_investing_in_equity_market': 'reason_equity',
+        'reasons_for_investing_in_mutual_funds': 'reason_mutual',
+        'reasons_for_investing_in_government_bonds': 'reason_bonds',
+        'reasons_for_investing_in_fixed_deposits_': 'reason_fd',
+        'your_sources_of_information_for_investments_is_': 'info_source'
     }
-    df = pd.DataFrame(data_dict)
+
+    # Rename columns in both dataframes
+    original_df = original_df.rename(columns=column_mapping)
+    finance_df = finance_df.rename(columns={'mutual_funds': 'mutual_funds_rank', 'equity_market': 'equity_market_rank',
+                                            'debentures': 'debentures_rank', 'government_bonds': 'government_bonds_rank',
+                                            'fixed_deposits': 'fixed_deposits_rank', 'ppf': 'ppf_rank', 'gold': 'gold_rank',
+                                            'stock_marktet': 'stock_market', 'invest_monitor': 'invest_monitor', 'expect': 'expect',
+                                            'avenue': 'avenue', 'source': 'info_source'})
+    
+    # Consolidate and drop any duplicate columns
+    full_data = pd.concat([original_df, finance_df], ignore_index=True)
+    full_data = full_data.loc[:, ~full_data.columns.duplicated()]
+
+    # Convert rank columns to numeric
+    rank_cols = [col for col in full_data.columns if '_rank' in col]
+    for col in rank_cols:
+        full_data[col] = pd.to_numeric(full_data[col], errors='coerce')
 
     # Define features (X) and target (y)
     features = ['gender', 'age', 'investment_avenues', 'mutual_funds_rank', 'equity_market_rank', 'debentures_rank', 
@@ -88,11 +115,11 @@ def train_and_cache_model():
                 'objective', 'purpose', 'duration', 'invest_monitor', 'expect']
     target = 'avenue'
     
-    X = df[features]
-    y = df[target]
+    X = full_data[features]
+    y = full_data[target]
 
     # Identify categorical and numerical features
-    categorical_features = X.select_dtypes(include=['object']).columns
+    categorical_features = X.select_dtypes(include=['object']).columns.tolist()
     
     # Create a preprocessor using ColumnTransformer
     preprocessor = ColumnTransformer(
@@ -111,11 +138,11 @@ def train_and_cache_model():
     model.fit(X, y)
 
     # Return the trained model, the features, and the full dataframe for lookups
-    return model, features, df
+    return model, features, full_data
+
 
 # Train and load the model at the start of the app
 model, model_features, full_data = train_and_cache_model()
-
 
 # --- 3. User Input Form ---
 
