@@ -55,9 +55,10 @@ def train_and_cache_model():
     This function now loads and merges the two provided CSV files.
     """
     try:
-        # Load the two provided CSV files
-        original_df = pd.read_csv('Original_data.csv')
-        finance_df = pd.read_csv('Finance_data.csv')
+        # Load the two provided CSV files with explicit handling for missing values
+        na_values = ['', ' ', 'nan', 'N/A', 'NA', 'na']
+        original_df = pd.read_csv('Original_data.csv', na_values=na_values)
+        finance_df = pd.read_csv('Finance_data.csv', na_values=na_values)
     except FileNotFoundError:
         st.error("Error: CSV data files not found. Please ensure 'Original_data.csv' and 'Finance_data.csv' are in the same directory.")
         st.stop()
@@ -109,7 +110,7 @@ def train_and_cache_model():
     for col in rank_cols:
         full_data[col] = pd.to_numeric(full_data[col], errors='coerce')
 
-    # This is the fix: drop all rows with any missing values
+    # Drop any rows with missing values that were converted to NaN
     full_data.dropna(inplace=True)
 
     # Define features (X) and target (y)
