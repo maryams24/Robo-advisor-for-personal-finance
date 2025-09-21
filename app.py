@@ -174,14 +174,18 @@ if submitted:
         st.subheader("Your Personalized Investment Recommendation")
         st.success(f"Based on your profile, we recommend **{prediction[0]}**.")
 
-        # Optionally, show the probability of each class
+        # Show the probability of each class
         probabilities = model.predict_proba(user_data)[0]
         class_labels = model.classes_
         prob_df = pd.DataFrame({'Investment Avenue': class_labels, 'Confidence': probabilities})
         prob_df = prob_df.sort_values('Confidence', ascending=False)
-
+        
         st.info("Confidence Score:")
         st.table(prob_df)
+
+        # Add a bar chart for visual clarity
+        st.subheader("Confidence Scores Visualized")
+        st.bar_chart(prob_df, x='Investment Avenue', y='Confidence')
 
     except Exception as e:
         st.error(f"Prediction error: {e}")
