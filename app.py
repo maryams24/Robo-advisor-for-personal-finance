@@ -105,25 +105,31 @@ def train_and_cache_model():
     full_data = pd.concat([original_df, finance_df], ignore_index=True)
     full_data = full_data.loc[:, ~full_data.columns.duplicated()]
 
-    # Convert rank columns to numeric
-    rank_cols = [col for col in full_data.columns if '_rank' in col]
-    for col in rank_cols:
-        full_data[col] = pd.to_numeric(full_data[col], errors='coerce')
-
-    # Drop any rows with missing values that were converted to NaN
-    full_data.dropna(inplace=True)
-
     # Define features (X) and target (y)
     features = ['gender', 'age', 'investment_avenues', 'mutual_funds_rank', 'equity_market_rank', 'debentures_rank', 
                 'government_bonds_rank', 'fixed_deposits_rank', 'ppf_rank', 'gold_rank', 'stock_market', 'factor', 
                 'objective', 'purpose', 'duration', 'invest_monitor', 'expect']
     target = 'avenue'
     
+    # --- Robust Data Cleaning ---
+    
+    # Identify categorical and numerical features
+    categorical_features = full_data[features].select_dtypes(include=['object']).columns.tolist()
+    rank_cols = [col for col in full_data.columns if '_rank' in col]
+
+    # Explicitly convert categorical features to string to prevent any non-string values
+    for col in categorical_features:
+        full_data[col] = full_data[col].astype(str)
+
+    # Convert rank columns to numeric, coercing errors to NaN
+    for col in rank_cols:
+        full_data[col] = pd.to_numeric(full_data[col], errors='coerce')
+
+    # Drop any rows where a feature value is NaN, ensuring a clean dataset for training
+    full_data.dropna(subset=features, inplace=True)
+    
     X = full_data[features]
     y = full_data[target]
-
-    # Identify categorical and numerical features
-    categorical_features = X.select_dtypes(include=['object']).columns.tolist()
     
     # Create a preprocessor using ColumnTransformer
     preprocessor = ColumnTransformer(
