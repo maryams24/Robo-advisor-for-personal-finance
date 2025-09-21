@@ -109,6 +109,9 @@ def train_and_cache_model():
     for col in rank_cols:
         full_data[col] = pd.to_numeric(full_data[col], errors='coerce')
 
+    # This is the fix: drop all rows with any missing values
+    full_data.dropna(inplace=True)
+
     # Define features (X) and target (y)
     features = ['gender', 'age', 'investment_avenues', 'mutual_funds_rank', 'equity_market_rank', 'debentures_rank', 
                 'government_bonds_rank', 'fixed_deposits_rank', 'ppf_rank', 'gold_rank', 'stock_market', 'factor', 
