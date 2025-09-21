@@ -4,6 +4,8 @@ import pandas as pd
 import numpy as np
 import joblib
 import os
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
@@ -50,6 +52,20 @@ with st.expander("Show EDA"):
     st.write(finance_df.describe())
     st.write("**Missing Values in Finance Data**")
     st.write(finance_df.isnull().sum())
+
+    # Example graph: Distribution of age
+    if 'age' in finance_df.columns:
+        fig, ax = plt.subplots()
+        sns.histplot(finance_df['age'].dropna(), bins=20, kde=True, ax=ax)
+        ax.set_title("Age Distribution")
+        st.pyplot(fig)
+
+    # Example graph: Gender count
+    if 'gender' in finance_df.columns:
+        fig, ax = plt.subplots()
+        sns.countplot(x='gender', data=finance_df, ax=ax)
+        ax.set_title("Gender Count")
+        st.pyplot(fig)
 
 # 2. Data Preprocessing Section
 st.subheader("2. Data Preprocessing")
@@ -98,6 +114,12 @@ with st.expander("Show Evaluation"):
     st.write("**Confusion Matrix:**")
     st.write(confusion_matrix(y_test, y_pred))
 
+    # Example graph: Confusion matrix heatmap
+    fig, ax = plt.subplots()
+    sns.heatmap(confusion_matrix(y_test, y_pred), annot=True, fmt='d', cmap='Blues', ax=ax)
+    ax.set_title("Confusion Matrix Heatmap")
+    st.pyplot(fig)
+
 # 6. Export Model Section
 st.subheader("6. Export Model")
 with st.expander("Show Export"):
@@ -115,7 +137,6 @@ def get_options(col, default=None):
         opts = [str(default)] + opts
     return opts if opts else [str(default)] if default else []
 
-
 with st.form("advisor_form"):
     gender = st.selectbox("Select your gender:", get_options('gender', 'Female'))
     age = st.number_input("Select your age:", min_value=18, max_value=100, value=21)
@@ -132,17 +153,5 @@ if submitted:
     prediction = model.predict(user_features)
     st.success(f"Recommended Investment Avenue: **{prediction[0]}**")
     st.info("Recommendation is based on your gender and age. For more personalized advice, expand the feature set.")
-
-# 8. Push Code into GitHub Section
-st.subheader("8. Push Code to GitHub")
-with st.expander("Show GitHub Instructions"):
-    st.markdown("""
-    **Steps:**
-    1. Initialize git: `git init`
-    2. Add files: `git add .`
-    3. Commit: `git commit -m "Initial commit"`
-    4. Create repo on GitHub and link:  
-       `git remote add origin <your-repo-url>`
-    5. Push: `git push -u origin main`
-    """)
-
+    st.balloons()
+    st.snow()
