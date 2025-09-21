@@ -2,90 +2,157 @@
 
 import streamlit as st
 import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-import seaborn as sns
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import train_test_split
 
+# Page config for better look
 st.set_page_config(page_title="Finance Advisor", page_icon="💸", layout="centered")
+
+# Custom CSS for style
+st.markdown("""
+    <style>
+        .main {background-color: #f2f6fc;}
+        .stButton>button {background-color: #0099ff; color: white; font-size: 18px;}
+        .stTextInput, .stSelectbox {font-size: 18px;}
+        .stTitle {color: #0099ff;}
+        .stSubheader {color: #0077cc;}
+        .stMarkdown {font-size: 18px;}
+    </style>
+    """, unsafe_allow_html=True)
 
 st.title("💸 Finance Advisor Web App")
 st.write("Get personalized investment advice based on your preferences.")
 
-# Load your CSV with exact column names
+# Load data directly from disk
 try:
     finance_df = pd.read_csv('Finance_data.csv')
 except Exception as e:
     st.error(f"Error loading data file: {e}")
     st.stop()
 
-# Show columns for debugging (remove/comment out after confirming)
-# st.write("Columns in your data:", finance_df.columns.tolist())
+# Standardize column names for consistency
+finance_df.columns = finance_df.columns.str.strip().str.lower().str.replace(' ', '_')
 
-# Helper to get options for selectboxes
+# Clean categorical columns for dropdowns (strip spaces, title case)
+categorical_cols = [
+    'gender', 'do_you_invest_in_investment_avenues', 'what_do_you_think_are_the_best_options_for_investing_your_money_(rank_in_order_of_preference)_[mutual_funds]',
+    'what_do_you_think_are_the_best_options_for_investing_your_money_(rank_in_order_of_preference)_[equity_market]',
+    'what_do_you_think_are_the_best_options_for_investing_your_money_(rank_in_order_of_preference)_[debentures]',
+    'what_do_you_think_are_the_best_options_for_investing_your_money_(rank_in_order_of_preference)_[government_bonds]',
+    'what_do_you_think_are_the_best_options_for_investing_your_money_(rank_in_order_of_preference)_[fixed_deposits]',
+    'what_do_you_think_are_the_best_options_for_investing_your_money_(rank_in_order_of_preference)_[public_provident_fund]',
+    'what_do_you_think_are_the_best_options_for_investing_your_money_(rank_in_order_of_preference)_[gold]',
+    'do_you_invest_in_stock_market', 'what_are_the_factors_considered_by_you_while_investing_in_any_instrument',
+    'what_is_your_investment_objective', 'what_is_your_purpose_behind_investment',
+    'how_long_do_you_prefer_to_keep_your_money_in_any_investment_instrument',
+    'how_often_do_you_monitor_your_investment', 'how_much_return_do_you_expect_from_any_investment_instrument',
+    'which_investment_avenue_do_you_mostly_invest_in', 'what_are_your_savings_objectives',
+    'reasons_for_investing_in_equity_market', 'reasons_for_investing_in_mutual_funds',
+    'reasons_for_investing_in_government_bonds', 'reasons_for_investing_in_fixed_deposits',
+    'your_sources_of_information_for_investments_is'
+]
+
+for col in categorical_cols:
+    if col in finance_df.columns:
+        finance_df[col] = finance_df[col].astype(str).str.strip().str.title()
+
+# Helper to get options from data
 def get_options(col, default=None):
     opts = finance_df[col].dropna().unique().tolist() if col in finance_df.columns else []
-    opts = sorted([str(x) for x in opts])
-    if default and str(default) not in opts:
-        opts = [str(default)] + opts
-    return opts if opts else [str(default)] if default else []
+    opts = sorted(list(set(opts)))
+    if default and default not in opts:
+        opts = [default] + opts
+    return opts if opts else [default] if default else []
 
 with st.form("advisor_form"):
-    gender = st.selectbox("GENDER", get_options('GENDER', 'Female'))
-    age = st.number_input("AGE", min_value=18, max_value=100, value=21)
-    invest_avenues = st.selectbox("Do you invest in Investment Avenues?", get_options('Do you invest in Investment Avenues?', 'No'))
-    mf_rank = st.selectbox("What do you think are the best options for investing your money? (Rank in order of preference) [Mutual Funds]", get_options('What do you think are the best options for investing your money? (Rank in order of preference) [Mutual Funds]', '1'))
-    eq_rank = st.selectbox("What do you think are the best options for investing your money? (Rank in order of preference) [Equity Market]", get_options('What do you think are the best options for investing your money? (Rank in order of preference) [Equity Market]', '1'))
-    deb_rank = st.selectbox("What do you think are the best options for investing your money? (Rank in order of preference) [Debentures]", get_options('What do you think are the best options for investing your money? (Rank in order of preference) [Debentures]', '1'))
-    gb_rank = st.selectbox("What do you think are the best options for investing your money? (Rank in order of preference) [Government Bonds]", get_options('What do you think are the best options for investing your money? (Rank in order of preference) [Government Bonds]', '1'))
-    fd_rank = st.selectbox("What do you think are the best options for investing your money? (Rank in order of preference) [Fixed Deposits]", get_options('What do you think are the best options for investing your money? (Rank in order of preference) [Fixed Deposits]', '1'))
-    ppf_rank = st.selectbox("What do you think are the best options for investing your money? (Rank in order of preference) [Public Provident Fund]", get_options('What do you think are the best options for investing your money? (Rank in order of preference) [Public Provident Fund]', '1'))
-    gold_rank = st.selectbox("What do you think are the best options for investing your money? (Rank in order of preference) [Gold]", get_options('What do you think are the best options for investing your money? (Rank in order of preference) [Gold]', '1'))
-    stock_market = st.selectbox("Do you invest in Stock Market?", get_options('Do you invest in Stock Market?', 'No'))
-    factors = st.selectbox("What are the factors considered by you while investing in any instrument?", get_options('What are the factors considered by you while investing in any instrument?', 'Returns'))
-    objective = st.selectbox("What is your investment objective?", get_options('What is your investment objective?', 'Capital Appreciation'))
-    purpose = st.selectbox("What is your purpose behind investment?", get_options('What is your purpose behind investment?', 'Wealth Creation'))
-    duration = st.selectbox("How long do you prefer to keep your money in any investment instrument?", get_options('How long do you prefer to keep your money in any investment instrument?', '1-3 years'))
-    monitor = st.selectbox("How often do you monitor your investment?", get_options('How often do you monitor your investment?', 'Monthly'))
-    expected_return = st.selectbox("How much return do you expect from any investment instrument?", get_options('How much return do you expect from any investment instrument?', '10%-20%'))
-    mostly_invest = st.selectbox("Which investment avenue do you mostly invest in?", get_options('Which investment avenue do you mostly invest in?', 'Mutual Fund'))
-    savings_obj = st.selectbox("What are your savings objectives?", get_options('What are your savings objectives?', 'Retirement Plan'))
-    reason_equity = st.selectbox("Reasons for investing in Equity Market", get_options('Reasons for investing in Equity Market', 'Capital Appreciation'))
-    reason_mf = st.selectbox("Reasons for investing in Mutual Funds", get_options('Reasons for investing in Mutual Funds', 'Better Returns'))
-    reason_gb = st.selectbox("Reasons for investing in Government Bonds", get_options('Reasons for investing in Government Bonds', 'Safe Investment'))
-    reason_fd = st.selectbox("Reasons for investing in Fixed Deposits", get_options('Reasons for investing in Fixed Deposits', 'Fixed Returns'))
-    info_source = st.selectbox("Your sources of information for investments is", get_options('Your sources of information for investments is', 'Internet'))
+    gender = st.selectbox("Gender", get_options('gender', 'Female'))
+    age = st.number_input("Age", min_value=18, max_value=100, value=21)
+    invest_avenues = st.selectbox("Do you invest in Investment Avenues?", get_options('do_you_invest_in_investment_avenues', 'No'))
+    mf_rank = st.selectbox("Mutual Funds (Rank in order of preference)", get_options('what_do_you_think_are_the_best_options_for_investing_your_money_(rank_in_order_of_preference)_[mutual_funds]', '1'))
+    eq_rank = st.selectbox("Equity Market (Rank in order of preference)", get_options('what_do_you_think_are_the_best_options_for_investing_your_money_(rank_in_order_of_preference)_[equity_market]', '1'))
+    deb_rank = st.selectbox("Debentures (Rank in order of preference)", get_options('what_do_you_think_are_the_best_options_for_investing_your_money_(rank_in_order_of_preference)_[debentures]', '1'))
+    gb_rank = st.selectbox("Government Bonds (Rank in order of preference)", get_options('what_do_you_think_are_the_best_options_for_investing_your_money_(rank_in_order_of_preference)_[government_bonds]', '1'))
+    fd_rank = st.selectbox("Fixed Deposits (Rank in order of preference)", get_options('what_do_you_think_are_the_best_options_for_investing_your_money_(rank_in_order_of_preference)_[fixed_deposits]', '1'))
+    ppf_rank = st.selectbox("Public Provident Fund (Rank in order of preference)", get_options('what_do_you_think_are_the_best_options_for_investing_your_money_(rank_in_order_of_preference)_[public_provident_fund]', '1'))
+    gold_rank = st.selectbox("Gold (Rank in order of preference)", get_options('what_do_you_think_are_the_best_options_for_investing_your_money_(rank_in_order_of_preference)_[gold]', '1'))
+    stock_market = st.selectbox("Do you invest in Stock Market?", get_options('do_you_invest_in_stock_market', 'No'))
+    factors = st.selectbox("Factors considered while investing", get_options('what_are_the_factors_considered_by_you_while_investing_in_any_instrument', 'Returns'))
+    objective = st.selectbox("Investment objective", get_options('what_is_your_investment_objective', 'Capital Appreciation'))
+    purpose = st.selectbox("Purpose behind investment", get_options('what_is_your_purpose_behind_investment', 'Wealth Creation'))
+    duration = st.selectbox("Preferred duration for investment", get_options('how_long_do_you_prefer_to_keep_your_money_in_any_investment_instrument', '1-3 Years'))
+    monitor = st.selectbox("How often do you monitor your investment?", get_options('how_often_do_you_monitor_your_investment', 'Monthly'))
+    expected_return = st.selectbox("Expected return", get_options('how_much_return_do_you_expect_from_any_investment_instrument', '10%-20%'))
+    mostly_invest = st.selectbox("Which investment avenue do you mostly invest in?", get_options('which_investment_avenue_do_you_mostly_invest_in', 'Mutual Fund'))
+    savings_obj = st.selectbox("Savings objectives", get_options('what_are_your_savings_objectives', 'Retirement Plan'))
+    reason_equity = st.selectbox("Reasons for investing in Equity Market", get_options('reasons_for_investing_in_equity_market', 'Capital Appreciation'))
+    reason_mf = st.selectbox("Reasons for investing in Mutual Funds", get_options('reasons_for_investing_in_mutual_funds', 'Better Returns'))
+    reason_gb = st.selectbox("Reasons for investing in Government Bonds", get_options('reasons_for_investing_in_government_bonds', 'Safe Investment'))
+    reason_fd = st.selectbox("Reasons for investing in Fixed Deposits", get_options('reasons_for_investing_in_fixed_deposits', 'Fixed Returns'))
+    info_source = st.selectbox("Sources of information for investments", get_options('your_sources_of_information_for_investments_is', 'Internet'))
 
     submitted = st.form_submit_button("Get Investment Advice")
 
 if submitted:
-    # Encode gender for grouping
-    gender_encoded = 0 if gender == 'Female' else 1
-    age_group = 'Young' if age <= 30 else 'Mid' if age <= 50 else 'Senior'
+    # Prepare user input for matching
+    user_inputs = {
+        'gender': gender,
+        'age': str(age),
+        'do_you_invest_in_investment_avenues': invest_avenues,
+        'what_do_you_think_are_the_best_options_for_investing_your_money_(rank_in_order_of_preference)_[mutual_funds]': mf_rank,
+        'what_do_you_think_are_the_best_options_for_investing_your_money_(rank_in_order_of_preference)_[equity_market]': eq_rank,
+        'what_do_you_think_are_the_best_options_for_investing_your_money_(rank_in_order_of_preference)_[debentures]': deb_rank,
+        'what_do_you_think_are_the_best_options_for_investing_your_money_(rank_in_order_of_preference)_[government_bonds]': gb_rank,
+        'what_do_you_think_are_the_best_options_for_investing_your_money_(rank_in_order_of_preference)_[fixed_deposits]': fd_rank,
+        'what_do_you_think_are_the_best_options_for_investing_your_money_(rank_in_order_of_preference)_[public_provident_fund]': ppf_rank,
+        'what_do_you_think_are_the_best_options_for_investing_your_money_(rank_in_order_of_preference)_[gold]': gold_rank,
+        'do_you_invest_in_stock_market': stock_market,
+        'what_are_the_factors_considered_by_you_while_investing_in_any_instrument': factors,
+        'what_is_your_investment_objective': objective,
+        'what_is_your_purpose_behind_investment': purpose,
+        'how_long_do_you_prefer_to_keep_your_money_in_any_investment_instrument': duration,
+        'how_often_do_you_monitor_your_investment': monitor,
+        'how_much_return_do_you_expect_from_any_investment_instrument': expected_return,
+        'which_investment_avenue_do_you_mostly_invest_in': mostly_invest,
+        'what_are_your_savings_objectives': savings_obj,
+        'reasons_for_investing_in_equity_market': reason_equity,
+        'reasons_for_investing_in_mutual_funds': reason_mf,
+        'reasons_for_investing_in_government_bonds': reason_gb,
+        'reasons_for_investing_in_fixed_deposits': reason_fd,
+        'your_sources_of_information_for_investments_is': info_source
+    }
 
-    # Find similar profiles (same gender and age group)
-    age_bins = [18, 30, 50, 100]
-    age_labels = ['Young', 'Mid', 'Senior']
-    finance_df['age_group'] = pd.cut(finance_df['AGE'], bins=age_bins, labels=age_labels)
-    similar = finance_df[(finance_df['GENDER'] == gender) & (finance_df['age_group'] == age_group)]
+    # Matching logic: score each row by number of matches
+    def score_row(row, user_inputs):
+        score = 0
+        for col, val in user_inputs.items():
+            if col in row.index:
+                if str(row[col]).lower() == str(val).lower():
+                    score += 1
+        return score
 
-    # Recommend based on most common avenue among similar profiles
-    if not similar.empty:
-        recommended_avenue = similar['Which investment avenue do you mostly invest in?'].mode()[0]
-        st.success(f"Recommended Investment Avenue: **{recommended_avenue}**")
+    finance_df['match_score'] = finance_df.apply(lambda row: score_row(row, user_inputs), axis=1)
+    best_match = finance_df.sort_values('match_score', ascending=False).iloc[0]
+
+    recommended_avenue = best_match['which_investment_avenue_do_you_mostly_invest_in'] if 'which_investment_avenue_do_you_mostly_invest_in' in best_match else None
+
+    # Show recommendation
+    if recommended_avenue and mostly_invest and recommended_avenue.lower() == mostly_invest.lower():
+        st.success(f"Your preferred investment avenue ({mostly_invest}) matches our recommendation!")
+    elif recommended_avenue:
+        st.warning(f"Based on your profile, we recommend **{recommended_avenue}** instead of your selected preference ({mostly_invest}).")
     else:
-        st.warning("No similar profiles found. Consider consulting a financial advisor.")
+        st.warning("No specific avenue recommendation found. Consider consulting a financial advisor.")
 
-    # Show a graph: Distribution of investment avenues among similar profiles
-    if not similar.empty:
-        fig, ax = plt.subplots()
-        sns.countplot(y='Which investment avenue do you mostly invest in?', data=similar,
-                      order=similar['Which investment avenue do you mostly invest in?'].value_counts().index, ax=ax)
-        ax.set_title("Investment Avenue Distribution (Similar Profiles)")
-        st.pyplot(fig)
-    else:
-        st.info("Not enough similar profiles to show a distribution graph.")
+    # Show reasoning behind recommendation
+    st.info("Recommendation is based on your gender, age, investment objective, purpose, duration, monitoring frequency, expected return, and factors considered.")
 
+    # Optionally, show the full matched row for transparency
+    with st.expander("See details of matched profile"):
+        st.write(best_match)
+
+    # Add animation for positive feedback
     st.balloons()
     st.snow()
+
+    # Optionally, show more info if present
+    for col in ['reasons_for_investing_in_equity_market', 'reasons_for_investing_in_mutual_funds', 'reasons_for_investing_in_government_bonds', 'reasons_for_investing_in_fixed_deposits']:
+        if col in best_match and pd.notna(best_match[col]):
+            st.write(f"**{col.replace('_', ' ').title()}:** {best_match[col]}")
